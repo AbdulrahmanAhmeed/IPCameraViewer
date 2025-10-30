@@ -1,0 +1,52 @@
+﻿<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="IPCameraViewer.MainPage"
+             Title="IP Camera Viewer">
+
+    <VerticalStackLayout Padding="20" Spacing="15">
+        <Label Text="Enter IP Camera Stream URL:" 
+               FontAttributes="Bold"
+               FontSize="18"/>
+
+        <Entry x:Name="CameraUrlEntry"
+               Placeholder="http://..."
+               Text="http://220.233.144.165:8888/mjpg/video.mjpg"
+               FontSize="16"/>
+
+        <HorizontalStackLayout Spacing="10">
+            <Button Text="Start" Clicked="OnStartClicked"/>
+            <Button Text="Stop" Clicked="OnStopClicked"/>
+        </HorizontalStackLayout>
+
+        <Grid ColumnDefinitions="*,300">
+            <Image x:Name="StreamImage"
+                   HeightRequest="400"
+                   WidthRequest="600"
+                   Aspect="AspectFit"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"/>
+
+            <VerticalStackLayout Grid.Column="1" Spacing="8" Padding="10,0,0,0">
+                <Label Text="Detections" FontAttributes="Bold"/>
+                <CollectionView x:Name="LogList"
+                                HeightRequest="400"
+                                SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Label Text="{Binding .}" FontSize="12"/>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+                <Button Text="Clear Logs" Clicked="OnClearLogsClicked" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <Label x:Name="MetricsLabel"
+               Text="Metrics: -"
+               FontSize="14"/>
+        <Label x:Name="MotionLabel"
+               Text="Motion: idle"
+               TextColor="Gray"
+               FontAttributes="Bold"/>
+    </VerticalStackLayout>
+</ContentPage>
