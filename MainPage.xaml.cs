@@ -1,26 +1,30 @@
 ﻿using Microsoft.Maui.Controls;
 using IPCameraViewer.Services;
-
+using IPCameraViewer.Models;
 using System.Net.Http;
 using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace IPCameraViewer
 {
     public partial class MainPage : ContentPage
     {
-        private MjpegStreamer? _streamer;
-        private readonly ObservableCollection<string> _detectionLogs = new();
-        private float _lastRatio;
+        private readonly ObservableCollection<CameraStreamViewModel> _streams = new();
+        private int _streamIdCounter = 0;
 
         public MainPage()
         {
             InitializeComponent();
-            LogList.ItemsSource = _detectionLogs;
+            StreamsCollection.ItemsSource = _streams;
+
+            // Add value converter for Start/Stop button
+            Resources.Add("BoolToStartStopConverter", new BoolToStartStopConverter());
         }
 
-        private void OnStartClicked(object sender, EventArgs e)
+        private void OnAddStreamClicked(object sender, EventArgs e)
         {
             var cameraUrl = CameraUrlEntry.Text?.Trim();
+            var cameraName = CameraNameEntry.Text?.Trim();
 
             if (string.IsNullOrWhiteSpace(cameraUrl))
             {
@@ -28,86 +32,214 @@ namespace IPCameraViewer
                 return;
             }
 
-            StopStreamer();
-
-            _streamer = new MjpegStreamer(new HttpClient());
-            _streamer.FrameReceived += OnFrameReceived;
-            _streamer.Metrics += OnMetrics;
-            _streamer.MotionDetected += OnMotion;
-            _streamer.Error += OnError;
-            _streamer.Start(cameraUrl);
-        }
-
-        private void OnStopClicked(object sender, EventArgs e)
-        {
-            StopStreamer();
-        }
-
-        private async void StopStreamer()
-        {
-            if (_streamer != null)
+            if (string.IsNullOrWhiteSpace(cameraName))
             {
-                var s = _streamer;
-                _streamer = null;
-                try { await s.DisposeAsync(); } catch { }
+                cameraName = $"Camera {_streamIdCounter + 1}";
             }
+
+            // Check if URL already exists
+            if (_streams.Any(s => s.Url == cameraUrl))
+            {
+                DisplayAlert("Error", "This camera URL is already added.", "OK");
+                return;
+            }
+
+            var streamViewModel = new CameraStreamViewModel
+            {
+                Id = _streamIdCounter++,
+                CameraName = cameraName,
+                Url = cameraUrl
+            };
+
+            _streams.Add(streamViewModel);
+            StartStream(streamViewModel);
+
+            // Clear inputs
+            CameraUrlEntry.Text = string.Empty;
+            CameraNameEntry.Text = string.Empty;
+
+            UpdateStatus($"Added stream: {cameraName}");
+        }
+
+        private void OnRemoveStreamClicked(object sender, EventArgs e)
+        {
+            if (sender is Button button && button.CommandParameter is int id)
+            {
+                var stream = _streams.FirstOrDefault(s => s.Id == id);
+                if (stream != null)
+                {
+                    StopStream(stream);
+                    _streams.Remove(stream);
+                    UpdateStatus($"Removed stream: {stream.CameraName}");
+                }
+            }
+        }
+
+        private void OnToggleStreamClicked(object sender, EventArgs e)
+        {
+            if (sender is Button button && button.CommandParameter is int id)
+            {
+                var stream = _streams.FirstOrDefault(s => s.Id == id);
+                if (stream != null)
+                {
+                    if (stream.IsRunning)
+                    {
+                        StopStream(stream);
+                        UpdateStatus($"Stopped stream: {stream.CameraName}");
+                    }
+                    else
+                    {
+                        StartStream(stream);
+                        UpdateStatus($"Started stream: {stream.CameraName}");
+                    }
+                }
+            }
+        }
+
+        private void OnStopAllClicked(object sender, EventArgs e)
+        {
+            foreach (var stream in _streams)
+            {
+                StopStream(stream);
+            }
+            UpdateStatus("All streams stopped");
+        }
+
+        private void OnClearStreamLogsClicked(object sender, EventArgs e)
+        {
+            if (sender is Button button && button.CommandParameter is int id)
+            {
+                var stream = _streams.FirstOrDefault(s => s.Id == id);
+                if (stream != null)
+                {
+                    stream.DetectionLogs.Clear();
+                }
+            }
+        }
+
+        private void OnClearAllLogsClicked(object sender, EventArgs e)
+        {
+            foreach (var stream in _streams)
+            {
+                stream.DetectionLogs.Clear();
+            }
+            UpdateStatus("All logs cleared");
+        }
+
+        private void StartStream(CameraStreamViewModel streamViewModel)
+        {
+            if (streamViewModel.Streamer != null)
+            {
+                StopStream(streamViewModel);
+            }
+
+            var streamer = new MjpegStreamer(new HttpClient());
+            streamer.FrameReceived += (jpegBytes) => OnFrameReceived(streamViewModel, jpegBytes);
+            streamer.Metrics += (ratio, changed, total) => OnMetrics(streamViewModel, ratio, changed, total);
+            streamer.MotionDetected += () => OnMotion(streamViewModel);
+            streamer.Error += (message) => OnError(streamViewModel, message);
+
+            streamViewModel.Streamer = streamer;
+            streamViewModel.IsRunning = true;
+            streamer.Start(streamViewModel.Url);
+        }
+
+        private async void StopStream(CameraStreamViewModel streamViewModel)
+        {
+            if (streamViewModel.Streamer != null)
+            {
+                var streamer = streamViewModel.Streamer;
+                streamViewModel.Streamer = null;
+                streamViewModel.IsRunning = false;
+
+                try
+                {
+                    await streamer.DisposeAsync();
+                }
+                catch { }
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    streamViewModel.CurrentFrame = null;
+                    streamViewModel.Metrics = "Metrics: -";
+                    streamViewModel.MotionStatus = "Motion: idle";
+                    streamViewModel.MotionColor = Colors.Gray;
+                });
+            }
+        }
+
+        private void OnFrameReceived(CameraStreamViewModel streamViewModel, byte[] jpegBytes)
+        {
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                StreamImage.Source = null;
-                MetricsLabel.Text = "Metrics: -";
-                MotionLabel.Text = "Motion: idle";
-                MotionLabel.TextColor = Colors.Gray;
+                streamViewModel.CurrentFrame = ImageSource.FromStream(() => new MemoryStream(jpegBytes));
             });
         }
 
-        private void OnFrameReceived(byte[] jpegBytes)
+        private void OnMetrics(CameraStreamViewModel streamViewModel, float ratio, int changed, int total)
         {
-            // Update Image control from bytes
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                StreamImage.Source = ImageSource.FromStream(() => new MemoryStream(jpegBytes));
+                streamViewModel.Metrics = $"Metrics: ratio={ratio:0.000}, changed={changed}/{total}";
+                streamViewModel.LastRatio = ratio;
             });
         }
 
-        private void OnMetrics(float ratio, int changed, int total)
+        private void OnMotion(CameraStreamViewModel streamViewModel)
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                MetricsLabel.Text = $"Metrics: ratio={ratio:0.000}, changed={changed}/{total}";
-                _lastRatio = ratio;
-            });
-        }
+                streamViewModel.MotionStatus = "Motion: detected";
+                streamViewModel.MotionColor = Colors.OrangeRed;
 
-        private void OnMotion()
-        {
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                MotionLabel.Text = "Motion: detected";
-                MotionLabel.TextColor = Colors.OrangeRed;
                 var timestamp = DateTime.Now.ToString("HH:mm:ss");
-                _detectionLogs.Add($"[{timestamp}] Motion detected (ratio={_lastRatio:0.000})");
-                if (_detectionLogs.Count > 1000)
+                streamViewModel.DetectionLogs.Add($"[{timestamp}] Motion detected (ratio={streamViewModel.LastRatio:0.000})");
+
+                if (streamViewModel.DetectionLogs.Count > 1000)
                 {
-                    _detectionLogs.RemoveAt(0);
-                }
-                if (_detectionLogs.Count > 0)
-                {
-                    LogList.ScrollTo(_detectionLogs[^1], position: ScrollToPosition.End, animate: true);
+                    streamViewModel.DetectionLogs.RemoveAt(0);
                 }
             });
         }
 
-        private void OnError(string message)
+        private void OnError(CameraStreamViewModel streamViewModel, string message)
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                DisplayAlert("Stream Error", message, "OK");
+                DisplayAlert($"Stream Error - {streamViewModel.CameraName}", message, "OK");
+                streamViewModel.IsRunning = false;
             });
         }
 
-        private void OnClearLogsClicked(object sender, EventArgs e)
+        private void UpdateStatus(string message)
         {
-            _detectionLogs.Clear();
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                StatusLabel.Text = $"{message} | Active streams: {_streams.Count(s => s.IsRunning)}/{_streams.Count}";
+            });
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            foreach (var stream in _streams)
+            {
+                StopStream(stream);
+            }
+        }
+    }
+
+    // Value converter for Start/Stop button text
+    public class BoolToStartStopConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            return (value is bool isRunning && isRunning) ? "Stop" : "Start";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
         }
     }
 }
