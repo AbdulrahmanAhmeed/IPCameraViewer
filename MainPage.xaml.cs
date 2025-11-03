@@ -9,16 +9,17 @@ namespace IPCameraViewer
 {
     public partial class MainPage : ContentPage
     {
-        private readonly ObservableCollection<CameraStreamViewModel> _streams = new();
-        private int _streamIdCounter = 0;
+		private const string MetricsResetText = "Metrics: -";
+		private const string MotionIdleText = "Motion: idle";
+		private const string MotionDetectedText = "Motion: detected";
+
+		private readonly ObservableCollection<CameraStreamViewModel> streams = new();
+		private int streamIdCounter = 0;
 
         public MainPage()
         {
             InitializeComponent();
-            StreamsCollection.ItemsSource = _streams;
-
-            // Add value converter for Start/Stop button
-            Resources.Add("BoolToStartStopConverter", new BoolToStartStopConverter());
+			StreamsCollection.ItemsSource = this.streams;
         }
 
         private void OnAddStreamClicked(object sender, EventArgs e)
@@ -34,11 +35,11 @@ namespace IPCameraViewer
 
             if (string.IsNullOrWhiteSpace(cameraName))
             {
-                cameraName = $"Camera {_streamIdCounter + 1}";
+				cameraName = $"Camera {this.streamIdCounter + 1}";
             }
 
             // Check if URL already exists
-            if (_streams.Any(s => s.Url == cameraUrl))
+            if (this.streams.Any(s => s.Url == cameraUrl))
             {
                 DisplayAlert("Error", "This camera URL is already added.", "OK");
                 return;
@@ -46,12 +47,12 @@ namespace IPCameraViewer
 
             var streamViewModel = new CameraStreamViewModel
             {
-                Id = _streamIdCounter++,
+				Id = this.streamIdCounter++,
                 CameraName = cameraName,
                 Url = cameraUrl
             };
 
-            _streams.Add(streamViewModel);
+			this.streams.Add(streamViewModel);
             StartStream(streamViewModel);
 
             // Clear inputs
@@ -65,11 +66,11 @@ namespace IPCameraViewer
         {
             if (sender is Button button && button.CommandParameter is int id)
             {
-                var stream = _streams.FirstOrDefault(s => s.Id == id);
+                var stream = this.streams.FirstOrDefault(s => s.Id == id);
                 if (stream != null)
                 {
                     StopStream(stream);
-                    _streams.Remove(stream);
+					this.streams.Remove(stream);
                     UpdateStatus($"Removed stream: {stream.CameraName}");
                 }
             }
@@ -79,7 +80,7 @@ namespace IPCameraViewer
         {
             if (sender is Button button && button.CommandParameter is int id)
             {
-                var stream = _streams.FirstOrDefault(s => s.Id == id);
+                var stream = this.streams.FirstOrDefault(s => s.Id == id);
                 if (stream != null)
                 {
                     if (stream.IsRunning)
@@ -98,7 +99,7 @@ namespace IPCameraViewer
 
         private void OnStopAllClicked(object sender, EventArgs e)
         {
-            foreach (var stream in _streams)
+            foreach (var stream in this.streams)
             {
                 StopStream(stream);
             }
@@ -109,7 +110,7 @@ namespace IPCameraViewer
         {
             if (sender is Button button && button.CommandParameter is int id)
             {
-                var stream = _streams.FirstOrDefault(s => s.Id == id);
+                var stream = this.streams.FirstOrDefault(s => s.Id == id);
                 if (stream != null)
                 {
                     stream.DetectionLogs.Clear();
@@ -119,7 +120,7 @@ namespace IPCameraViewer
 
         private void OnClearAllLogsClicked(object sender, EventArgs e)
         {
-            foreach (var stream in _streams)
+            foreach (var stream in this.streams)
             {
                 stream.DetectionLogs.Clear();
             }
@@ -161,8 +162,8 @@ namespace IPCameraViewer
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     streamViewModel.CurrentFrame = null;
-                    streamViewModel.Metrics = "Metrics: -";
-                    streamViewModel.MotionStatus = "Motion: idle";
+                    streamViewModel.Metrics = MainPage.MetricsResetText;
+                    streamViewModel.MotionStatus = MainPage.MotionIdleText;
                     streamViewModel.MotionColor = Colors.Gray;
                 });
             }
@@ -189,7 +190,7 @@ namespace IPCameraViewer
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                streamViewModel.MotionStatus = "Motion: detected";
+				streamViewModel.MotionStatus = MainPage.MotionDetectedText;
                 streamViewModel.MotionColor = Colors.OrangeRed;
 
                 var timestamp = DateTime.Now.ToString("HH:mm:ss");
@@ -215,31 +216,17 @@ namespace IPCameraViewer
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                StatusLabel.Text = $"{message} | Active streams: {_streams.Count(s => s.IsRunning)}/{_streams.Count}";
+				StatusLabel.Text = $"{message} | Active streams: {this.streams.Count(s => s.IsRunning)}/{this.streams.Count}";
             });
         }
 
         protected override void OnDisappearing()
         {
             base.OnDisappearing();
-            foreach (var stream in _streams)
+            foreach (var stream in this.streams)
             {
                 StopStream(stream);
             }
-        }
-    }
-
-    // Value converter for Start/Stop button text
-    public class BoolToStartStopConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
-        {
-            return (value is bool isRunning && isRunning) ? "Stop" : "Start";
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
-        {
-            throw new NotImplementedException();
         }
     }
 }

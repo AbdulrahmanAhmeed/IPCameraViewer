@@ -9,23 +9,25 @@ namespace IPCameraViewer.Services
 {
 	public sealed class MjpegStreamer : IAsyncDisposable
 	{
-		private readonly HttpClient _httpClient;
-		private CancellationTokenSource? _cts;
-		private Task? _readTask;
+		private const string UserAgentHeader = "IpCameraViewer/1.0 (MJPEG)";
+
+		private readonly HttpClient httpClient;
+		private CancellationTokenSource? cts;
+		private Task? readTask;
 
 		public event Action<byte[]>? FrameReceived;
 		public event Action? MotionDetected;
 		public event Action<string>? Error;
 		public event Action<float,int,int>? Metrics; // ratio, changed, total pixels
 
-		private SixLabors.ImageSharp.Image<Rgba32>? _previousFrame;
-		private readonly object _stateLock = new();
-		private readonly int _downscaleWidth;
-		private readonly int _downscaleHeight;
-		private readonly float _differenceThresholdRatio;
-		private readonly byte _perChannelThreshold;
-		private long _lastDetectionMs;
-		private readonly int _cooldownMs;
+		private SixLabors.ImageSharp.Image<Rgba32>? previousFrame;
+		private readonly object stateLock = new();
+		private readonly int downscaleWidth;
+		private readonly int downscaleHeight;
+		private readonly float differenceThresholdRatio;
+		private readonly byte perChannelThreshold;
+		private long lastDetectionMs;
+		private readonly int cooldownMs;
 
 		public MjpegStreamer(HttpClient httpClient,
 			int downscaleWidth = 96,
@@ -34,34 +36,34 @@ namespace IPCameraViewer.Services
 			byte perChannelThreshold = 18,
 			int cooldownMs = 2000)
 		{
-			_httpClient = httpClient;
-			_downscaleWidth = downscaleWidth;
-			_downscaleHeight = downscaleHeight;
-			_differenceThresholdRatio = differenceThresholdRatio;
-			_perChannelThreshold = perChannelThreshold;
-			_cooldownMs = cooldownMs;
+			this.httpClient = httpClient;
+			this.downscaleWidth = downscaleWidth;
+			this.downscaleHeight = downscaleHeight;
+			this.differenceThresholdRatio = differenceThresholdRatio;
+			this.perChannelThreshold = perChannelThreshold;
+			this.cooldownMs = cooldownMs;
 		}
 
 		public void Start(string url)
 		{
-			_cts?.Cancel();
-			_cts = new CancellationTokenSource();
-			_readTask = Task.Run(() => ReadLoopAsync(url, _cts.Token));
+			this.cts?.Cancel();
+			this.cts = new CancellationTokenSource();
+			this.readTask = Task.Run(() => this.ReadLoopAsync(url, this.cts.Token));
 		}
 
 		public async ValueTask DisposeAsync()
 		{
-			_cts?.Cancel();
-			if (_readTask != null)
+			this.cts?.Cancel();
+			if (this.readTask != null)
 			{
-				try { await _readTask.ConfigureAwait(false); } catch { }
+				try { await this.readTask.ConfigureAwait(false); } catch { }
 			}
-			_cts?.Dispose();
-			_cts = null;
-			lock (_stateLock)
+			this.cts?.Dispose();
+			this.cts = null;
+			lock (this.stateLock)
 			{
-				_previousFrame?.Dispose();
-				_previousFrame = null;
+				this.previousFrame?.Dispose();
+				this.previousFrame = null;
 			}
 		}
 
@@ -70,8 +72,8 @@ namespace IPCameraViewer.Services
 			try
 			{
 				using var request = new HttpRequestMessage(HttpMethod.Get, url);
-				request.Headers.TryAddWithoutValidation("User-Agent", "IpCameraViewer/1.0 (MJPEG)");
-				using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+				request.Headers.TryAddWithoutValidation("User-Agent", MjpegStreamer.UserAgentHeader);
+				using var response = await this.httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
 				response.EnsureSuccessStatusCode();
 
 				await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
@@ -131,17 +133,17 @@ namespace IPCameraViewer.Services
 			try
 			{
 				using var image = SixLabors.ImageSharp.Image.Load<Rgba32>(jpegBytes);
-				image.Mutate(ctx => ctx.Resize(_downscaleWidth, _downscaleHeight));
+				image.Mutate(ctx => ctx.Resize(this.downscaleWidth, this.downscaleHeight));
 
 				bool fireMotion = false;
 				float ratioForMetrics = 0f;
 				int changedForMetrics = 0;
 				int pixelCountForMetrics = 0;
-				lock (_stateLock)
+				lock (this.stateLock)
 				{
-					if (_previousFrame == null)
+					if (this.previousFrame == null)
 					{
-						_previousFrame = image.Clone();
+						this.previousFrame = image.Clone();
 						return;
 					}
 
@@ -153,7 +155,7 @@ namespace IPCameraViewer.Services
 					var currentPixels = new Rgba32[pixelCount];
 					var previousPixels = new Rgba32[pixelCount];
 					image.CopyPixelDataTo(currentPixels);
-					_previousFrame!.CopyPixelDataTo(previousPixels);
+					this.previousFrame!.CopyPixelDataTo(previousPixels);
 
 					for (int i = 0; i < pixelCount; i++)
 					{
@@ -162,7 +164,7 @@ namespace IPCameraViewer.Services
 						int dr = Math.Abs(c.R - p.R);
 						int dg = Math.Abs(c.G - p.G);
 						int db = Math.Abs(c.B - p.B);
-						if (dr > _perChannelThreshold || dg > _perChannelThreshold || db > _perChannelThreshold)
+						if (dr > this.perChannelThreshold || dg > this.perChannelThreshold || db > this.perChannelThreshold)
 						{
 							changed++;
 						}
@@ -170,14 +172,14 @@ namespace IPCameraViewer.Services
 
 					float ratio = (float)changed / pixelCount;
 					var now = Environment.TickCount64;
-					if (ratio >= _differenceThresholdRatio && (now - _lastDetectionMs) > _cooldownMs)
+					if (ratio >= this.differenceThresholdRatio && (now - this.lastDetectionMs) > this.cooldownMs)
 					{
-						_lastDetectionMs = now;
+						this.lastDetectionMs = now;
 						fireMotion = true;
 					}
 
-					_previousFrame.Dispose();
-					_previousFrame = image.Clone();
+					this.previousFrame.Dispose();
+					this.previousFrame = image.Clone();
 
 					ratioForMetrics = ratio;
 					changedForMetrics = changed;
