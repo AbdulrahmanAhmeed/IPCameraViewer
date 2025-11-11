@@ -20,11 +20,31 @@ namespace IPCameraViewer.Services
 		public event Action<string>? Error;
 		public event Action<float,int,int>? Metrics; // ratio, changed, total pixels
 
+		public float DifferenceThresholdRatio
+		{
+			get
+			{
+				float result;
+				lock (this.stateLock)
+				{
+					result = this.differenceThresholdRatio;
+				}
+				return result;
+			}
+			set
+			{
+				lock (this.stateLock)
+				{
+					this.differenceThresholdRatio = value;
+				}
+			}
+		}
+
 		private SixLabors.ImageSharp.Image<Rgba32>? previousFrame;
 		private readonly object stateLock = new();
 		private readonly int downscaleWidth;
 		private readonly int downscaleHeight;
-		private readonly float differenceThresholdRatio;
+		private float differenceThresholdRatio;
 		private readonly byte perChannelThreshold;
 		private long lastDetectionMs;
 		private readonly int cooldownMs;
@@ -102,7 +122,7 @@ namespace IPCameraViewer.Services
 							var frameBytes = readBuffer.GetRange(soi, length).ToArray();
 							readBuffer.RemoveRange(0, eoi + 2);
 
-							OnFrame(frameBytes);
+							this.OnFrame(frameBytes);
 						}
 					}
 				}
@@ -113,22 +133,27 @@ namespace IPCameraViewer.Services
 			}
 			catch (Exception ex)
 			{
-				Error?.Invoke(ex.Message);
+				this.Error?.Invoke(ex.Message);
 			}
 		}
 
 		private static int IndexOfPattern(List<byte> data, byte b1, byte b2, int start = 0)
 		{
+			int result = -1;
 			for (int i = start; i < data.Count - 1; i++)
 			{
-				if (data[i] == b1 && data[i + 1] == b2) return i;
+				if (data[i] == b1 && data[i + 1] == b2)
+				{
+					result = i;
+					break;
+				}
 			}
-			return -1;
+			return result;
 		}
 
 		private void OnFrame(byte[] jpegBytes)
 		{
-			FrameReceived?.Invoke(jpegBytes);
+			this.FrameReceived?.Invoke(jpegBytes);
 
 			try
 			{
@@ -144,58 +169,59 @@ namespace IPCameraViewer.Services
 					if (this.previousFrame == null)
 					{
 						this.previousFrame = image.Clone();
-						return;
 					}
-
-					int width = image.Width;
-					int height = image.Height;
-					int pixelCount = width * height;
-					int changed = 0;
-
-					var currentPixels = new Rgba32[pixelCount];
-					var previousPixels = new Rgba32[pixelCount];
-					image.CopyPixelDataTo(currentPixels);
-					this.previousFrame!.CopyPixelDataTo(previousPixels);
-
-					for (int i = 0; i < pixelCount; i++)
+					else
 					{
-						var c = currentPixels[i];
-						var p = previousPixels[i];
-						int dr = Math.Abs(c.R - p.R);
-						int dg = Math.Abs(c.G - p.G);
-						int db = Math.Abs(c.B - p.B);
-						if (dr > this.perChannelThreshold || dg > this.perChannelThreshold || db > this.perChannelThreshold)
+						int width = image.Width;
+						int height = image.Height;
+						int pixelCount = width * height;
+						int changed = 0;
+
+						var currentPixels = new Rgba32[pixelCount];
+						var previousPixels = new Rgba32[pixelCount];
+						image.CopyPixelDataTo(currentPixels);
+						this.previousFrame!.CopyPixelDataTo(previousPixels);
+
+						for (int i = 0; i < pixelCount; i++)
 						{
-							changed++;
+							var c = currentPixels[i];
+							var p = previousPixels[i];
+							int dr = Math.Abs(c.R - p.R);
+							int dg = Math.Abs(c.G - p.G);
+							int db = Math.Abs(c.B - p.B);
+							if (dr > this.perChannelThreshold || dg > this.perChannelThreshold || db > this.perChannelThreshold)
+							{
+								changed++;
+							}
 						}
+
+						float ratio = (float)changed / pixelCount;
+						var now = Environment.TickCount64;
+						if (ratio >= this.differenceThresholdRatio && (now - this.lastDetectionMs) > this.cooldownMs)
+						{
+							this.lastDetectionMs = now;
+							fireMotion = true;
+						}
+
+						this.previousFrame.Dispose();
+						this.previousFrame = image.Clone();
+
+						ratioForMetrics = ratio;
+						changedForMetrics = changed;
+						pixelCountForMetrics = pixelCount;
 					}
-
-					float ratio = (float)changed / pixelCount;
-					var now = Environment.TickCount64;
-					if (ratio >= this.differenceThresholdRatio && (now - this.lastDetectionMs) > this.cooldownMs)
-					{
-						this.lastDetectionMs = now;
-						fireMotion = true;
-					}
-
-					this.previousFrame.Dispose();
-					this.previousFrame = image.Clone();
-
-					ratioForMetrics = ratio;
-					changedForMetrics = changed;
-					pixelCountForMetrics = pixelCount;
 				}
 
-				try { Metrics?.Invoke(ratioForMetrics, changedForMetrics, pixelCountForMetrics); } catch { }
+				try { this.Metrics?.Invoke(ratioForMetrics, changedForMetrics, pixelCountForMetrics); } catch { }
 
 				if (fireMotion)
 				{
-					MotionDetected?.Invoke();
+					this.MotionDetected?.Invoke();
 				}
 			}
 			catch (Exception ex)
 			{
-				Error?.Invoke(ex.Message);
+				this.Error?.Invoke(ex.Message);
 			}
 		}
 	}

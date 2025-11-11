@@ -8,68 +8,79 @@ namespace IPCameraViewer.Models
 {
     public class CameraStreamViewModel : INotifyPropertyChanged
     {
-        private int _id;
-        private string _cameraName = string.Empty;
-        private string _url = string.Empty;
-        private bool _isRunning;
-        private ImageSource? _currentFrame;
-        private string _metrics = "Metrics: -";
-        private string _motionStatus = "Motion: idle";
-        private Color _motionColor = Colors.Gray;
-        private float _lastRatio;
+        private const string DefaultMetricsText = "Metrics: -";
+        private const string DefaultMotionIdleText = "Motion: idle";
+        private const double DefaultMotionThresholdPercent = 1.5;
+
+        private int id;
+        private string cameraName = string.Empty;
+        private string url = string.Empty;
+        private bool isRunning;
+        private ImageSource? currentFrame;
+        private string metrics = CameraStreamViewModel.DefaultMetricsText;
+        private string motionStatus = CameraStreamViewModel.DefaultMotionIdleText;
+        private Color motionColor = Colors.Gray;
+        private float lastRatio;
+        private double motionThresholdPercent = CameraStreamViewModel.DefaultMotionThresholdPercent;
 
         public int Id
         {
-            get => _id;
-            set => SetProperty(ref _id, value);
+            get => this.id;
+            set => SetProperty(ref this.id, value);
         }
 
         public string CameraName
         {
-            get => _cameraName;
-            set => SetProperty(ref _cameraName, value);
+            get => this.cameraName;
+            set => SetProperty(ref this.cameraName, value);
         }
 
         public string Url
         {
-            get => _url;
-            set => SetProperty(ref _url, value);
+            get => this.url;
+            set => SetProperty(ref this.url, value);
         }
 
         public bool IsRunning
         {
-            get => _isRunning;
-            set => SetProperty(ref _isRunning, value);
+            get => this.isRunning;
+            set => SetProperty(ref this.isRunning, value);
         }
 
         public ImageSource? CurrentFrame
         {
-            get => _currentFrame;
-            set => SetProperty(ref _currentFrame, value);
+            get => this.currentFrame;
+            set => SetProperty(ref this.currentFrame, value);
         }
 
         public string Metrics
         {
-            get => _metrics;
-            set => SetProperty(ref _metrics, value);
+            get => this.metrics;
+            set => SetProperty(ref this.metrics, value);
         }
 
         public string MotionStatus
         {
-            get => _motionStatus;
-            set => SetProperty(ref _motionStatus, value);
+            get => this.motionStatus;
+            set => SetProperty(ref this.motionStatus, value);
         }
 
         public Color MotionColor
         {
-            get => _motionColor;
-            set => SetProperty(ref _motionColor, value);
+            get => this.motionColor;
+            set => SetProperty(ref this.motionColor, value);
         }
 
         public float LastRatio
         {
-            get => _lastRatio;
-            set => SetProperty(ref _lastRatio, value);
+            get => this.lastRatio;
+            set => SetProperty(ref this.lastRatio, value);
+        }
+
+        public double MotionThresholdPercent
+        {
+            get => this.motionThresholdPercent;
+            set => SetProperty(ref this.motionThresholdPercent, value);
         }
 
         public ObservableCollection<string> DetectionLogs { get; } = new();
@@ -80,17 +91,22 @@ namespace IPCameraViewer.Models
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
         protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
         {
+            bool result = true;
             if (EqualityComparer<T>.Default.Equals(field, value))
-                return false;
-
-            field = value;
-            OnPropertyChanged(propertyName);
-            return true;
+            {
+                result = false;
+            }
+            else
+            {
+                field = value;
+                this.OnPropertyChanged(propertyName);
+            }
+            return result;
         }
     }
 }

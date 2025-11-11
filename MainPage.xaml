@@ -101,6 +101,17 @@
                                     </VerticalStackLayout>
                                 </Grid>
 
+                                <!-- Motion Threshold Slider -->
+                                <VerticalStackLayout Spacing="5">
+                                    <Label Text="{Binding MotionThresholdPercent, StringFormat='Motion Threshold: {0:F1}%'}"
+                                           FontSize="13"
+                                           TextColor="White"/>
+                                    <Slider Minimum="0.1"
+                                            Maximum="100"
+                                            Value="{Binding MotionThresholdPercent}"
+                                            ValueChanged="OnThresholdChanged"/>
+                                </VerticalStackLayout>
+
                                 <!-- Metrics -->
                                 <HorizontalStackLayout Spacing="20">
                                     <Label Text="{Binding Metrics}"

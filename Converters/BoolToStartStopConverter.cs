@@ -9,7 +9,16 @@ namespace IPCameraViewer.Converters
 
 		public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
 		{
-			return (value is bool isRunning && isRunning) ? BoolToStartStopConverter.StopText : BoolToStartStopConverter.StartText;
+			object result;
+			if (value is bool isRunning && isRunning)
+			{
+				result = BoolToStartStopConverter.StopText;
+			}
+			else
+			{
+				result = BoolToStartStopConverter.StartText;
+			}
+			return result;
 		}
 
 		public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
