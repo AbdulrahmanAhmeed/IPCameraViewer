@@ -5,6 +5,11 @@ namespace IPCameraViewer
 {
     public static class MauiProgram
     {
+        private const string OpenSansRegularFont = "OpenSans-Regular.ttf";
+        private const string OpenSansRegularFontName = "OpenSansRegular";
+        private const string OpenSansSemiboldFont = "OpenSans-Semibold.ttf";
+        private const string OpenSansSemiboldFontName = "OpenSansSemibold";
+
         public static MauiApp CreateMauiApp()
         {
             var builder = MauiApp.CreateBuilder();
@@ -12,8 +17,8 @@ namespace IPCameraViewer
                 .UseMauiApp<App>()
                 .ConfigureFonts(fonts =>
                 {
-                    fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                    fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+                    fonts.AddFont(MauiProgram.OpenSansRegularFont, MauiProgram.OpenSansRegularFontName);
+                    fonts.AddFont(MauiProgram.OpenSansSemiboldFont, MauiProgram.OpenSansSemiboldFontName);
                 });
 
 #if DEBUG
@@ -22,6 +27,12 @@ namespace IPCameraViewer
 
 		builder.Services.AddSingleton<HttpClient>();
 		builder.Services.AddSingleton<MjpegStreamer>();
+
+#if WINDOWS
+            builder.Services.AddSingleton<IAudioService, Platforms.Windows.AudioService>();
+#else
+            builder.Services.AddSingleton<IAudioService, NoOpAudioService>();
+#endif
 
             return builder.Build();
         }

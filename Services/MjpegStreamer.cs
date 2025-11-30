@@ -113,9 +113,9 @@ namespace IPCameraViewer.Services
 
 						while (true)
 						{
-							int soi = IndexOfPattern(readBuffer, 0xFF, 0xD8);
+							int soi = MjpegStreamer.IndexOfPattern(readBuffer, 0xFF, 0xD8);
 							if (soi < 0) { break; }
-							int eoi = IndexOfPattern(readBuffer, 0xFF, 0xD9, soi + 2);
+							int eoi = MjpegStreamer.IndexOfPattern(readBuffer, 0xFF, 0xD9, soi + 2);
 							if (eoi < 0) { break; }
 
 							int length = (eoi + 2) - soi;
