@@ -259,6 +259,27 @@
                                                     FontSize="12"
                                                     Padding="5"/>
                                         </VerticalStackLayout>
+
+                                        <!-- Recording Duration Settings -->
+                                        <VerticalStackLayout Spacing="5" IsVisible="{Binding RecordingEnabled}">
+                                            <Label Text="{Binding RecordingBeforeSeconds, StringFormat='Record Before Detection: {0} seconds'}"
+                                                   FontSize="13"
+                                                   TextColor="White"/>
+                                            <Slider Minimum="1"
+                                                    Maximum="30"
+                                                    Value="{Binding RecordingBeforeSeconds, Mode=OneWay}"
+                                                    ValueChanged="OnRecordingBeforeDurationChanged"/>
+                                        </VerticalStackLayout>
+
+                                        <VerticalStackLayout Spacing="5" IsVisible="{Binding RecordingEnabled}">
+                                            <Label Text="{Binding RecordingAfterSeconds, StringFormat='Record After Detection: {0} seconds'}"
+                                                   FontSize="13"
+                                                   TextColor="White"/>
+                                            <Slider Minimum="1"
+                                                    Maximum="60"
+                                                    Value="{Binding RecordingAfterSeconds, Mode=OneWay}"
+                                                    ValueChanged="OnRecordingAfterDurationChanged"/>
+                                        </VerticalStackLayout>
                                     </VerticalStackLayout>
                                 </Border>
 
