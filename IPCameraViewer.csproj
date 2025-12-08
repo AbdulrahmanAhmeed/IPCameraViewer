@@ -66,4 +66,11 @@
 		<PackageReference Include="Tesseract" Version="5.2.0" />
 	</ItemGroup>
 
+	<!-- Copy tessdata folder to output directory -->
+	<ItemGroup>
+		<Content Include="tessdata\**\*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
 </Project>
