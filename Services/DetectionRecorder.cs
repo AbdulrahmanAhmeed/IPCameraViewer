@@ -22,7 +22,8 @@ namespace IPCameraViewer.Services
             bool saveGif,
             bool savePng,
             bool saveMp4,
-            DateTime detectionTime)
+            DateTime detectionTime,
+            string? plateNumber = null)
         {
             if (frames == null || frames.Count == 0)
             {
@@ -35,10 +36,11 @@ namespace IPCameraViewer.Services
                 Directory.CreateDirectory(outputDirectory);
             }
 
-            // Create filename with timestamp
+            // Create filename with timestamp and optional plate number
             string timestamp = detectionTime.ToString("yyyyMMdd_HHmmss");
             string safeCameraName = SanitizeFileName(cameraName);
-            string baseFileName = $"{safeCameraName}_{timestamp}";
+            string plateInfo = !string.IsNullOrEmpty(plateNumber) ? $"_{SanitizeFileName(plateNumber)}" : "";
+            string baseFileName = $"{safeCameraName}_{timestamp}{plateInfo}";
 
             var tasks = new List<Task>();
 

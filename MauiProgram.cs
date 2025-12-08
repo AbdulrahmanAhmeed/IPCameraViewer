@@ -30,6 +30,8 @@ namespace IPCameraViewer
 
 #if WINDOWS
             builder.Services.AddSingleton<IAudioService, Platforms.Windows.AudioService>();
+            builder.Services.AddSingleton<LicensePlateRecognitionService>();
+            builder.Services.AddSingleton<AnprService>(); // New OpenCV + Tesseract ANPR
 #else
             builder.Services.AddSingleton<IAudioService, NoOpAudioService>();
 #endif
