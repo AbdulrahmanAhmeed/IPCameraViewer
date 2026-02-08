@@ -61,16 +61,6 @@
 		<PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.1" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
-		<PackageReference Include="OpenCvSharp4" Version="4.10.0.20240616" />
-		<PackageReference Include="OpenCvSharp4.runtime.win" Version="4.10.0.20240616" Condition="$([MSBuild]::IsOSPlatform('windows'))" />
-		<PackageReference Include="Tesseract" Version="5.2.0" />
-	</ItemGroup>
-
-	<!-- Copy tessdata folder to output directory -->
-	<ItemGroup>
-		<Content Include="tessdata\**\*">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</Content>
 	</ItemGroup>
 
 </Project>

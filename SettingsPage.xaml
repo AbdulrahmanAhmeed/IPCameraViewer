@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="IPCameraViewer.SettingsPage"
+             Title="Settings">
+    
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="20">
+            
+            <Label Text="Motion Detection Sound Settings"
+                   FontSize="20"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center"/>
+            
+            <!-- Enable Sound Toggle -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Label Text="Enable Sound Alerts"
+                       FontSize="16"
+                       VerticalOptions="Center"/>
+                <Switch x:Name="EnableSoundSwitch"
+                        Grid.Column="1"
+                        IsToggled="True"
+                        Toggled="OnEnableSoundToggled"/>
+            </Grid>
+            
+            <!-- Selected Sound File -->
+            <VerticalStackLayout Spacing="10">
+                <Label Text="Selected Sound File:"
+                       FontSize="16"
+                       FontAttributes="Bold"/>
+                
+                <Label x:Name="SelectedFileLabel"
+                       Text="No file selected"
+                       FontSize="14"
+                       TextColor="Gray"
+                       LineBreakMode="TailTruncation"/>
+                
+                <Button Text="Select WAV File"
+                        Clicked="OnSelectFileClicked"
+                        HorizontalOptions="Start"/>
+                
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <Button Grid.Column="0"
+                            Text="Clear Selection"
+                            Clicked="OnClearFileClicked"
+                            BackgroundColor="OrangeRed"
+                            TextColor="White"/>
+                    <Button x:Name="TestSoundButton"
+                            Grid.Column="1"
+                            Text="Test Sound"
+                            Clicked="OnTestSoundClicked"
+                            BackgroundColor="Green"
+                            TextColor="White"/>
+                </Grid>
+            </VerticalStackLayout>
+            
+            <BoxView HeightRequest="1" 
+                    Color="LightGray" 
+                    Margin="0,10"/>
+            
+            <!-- Info -->
+            <Label Text="When motion is detected on any camera, the selected sound will be played."
+                   FontSize="13"
+                   TextColor="Gray"
+                   LineBreakMode="WordWrap"/>
+            
+            <!-- Buttons -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,20,0,0">
+                <Button Grid.Column="0"
+                        Text="Cancel"
+                        Clicked="OnCancelClicked"
+                        BackgroundColor="LightGray"/>
+                <Button Grid.Column="1"
+                        Text="Save"
+                        Clicked="OnSaveClicked"
+                        BackgroundColor="DodgerBlue"
+                        TextColor="White"/>
+            </Grid>
+            
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
+
